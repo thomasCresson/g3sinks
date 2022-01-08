@@ -76,6 +76,11 @@ if(CHOICE_SINK_LOGROTATE)
   add_subdirectory(sink_logrotate)
 endif()
 
+# logrotatefs, logrotatefswithfilter
+if(CHOICE_SINK_LOGROTATE_FS)
+  add_subdirectory(sink_logrotate_fs)
+endif()
+
 # Linux, OSX: syslog
 if(CHOICE_SINK_SYSLOG)
   verifySyslogDependencies(SYSLOG_SINK_ERROR)
