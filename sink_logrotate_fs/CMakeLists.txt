@@ -1,4 +1,4 @@
-project(logrotate_fs CXX)
+project(logrotate_fs)
 
 # Find ZLIB package
 find_package(ZLIB REQUIRED)
@@ -17,12 +17,8 @@ else()
     add_library(${G3LOGROTATE_FS_LIB_NAME} SHARED "")
 endif()
 
-# Add sources
-target_sources(
-    ${G3LOGROTATE_FS_LIB_NAME}
-    PRIVATE
-        dummy.cpp # TO BE DELETED WHEN ANOTHER SOURCE FILE IS ADDED
-)
+# Ajout des sources contenues dans src
+add_subdirectory(src)
 
 target_include_directories(
     ${G3LOGROTATE_FS_LIB_NAME}
