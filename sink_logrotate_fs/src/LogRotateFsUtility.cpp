@@ -6,8 +6,13 @@
  * PUBLIC DOMAIN and Not copywrited.
  * ********************************************* */
 #include <fstream>
+#include <iostream>
+#include <algorithm>
 
 #include "g3sinks/LogRotateFsUtility.h"
+#include "g3log/time.hpp"
+
+using namespace std::literals;
 
 #if (defined(WIN32) || defined(_WIN32) || defined(__WIN32__)) && !defined(__MINGW32__)
 // http://stackoverflow.com/questions/321849/strptime-equivalent-on-windows
@@ -36,10 +41,21 @@ char* strptime(const char* s, const char* f, struct tm* tm)
  * @param fileName File name to check.
  * @return True if the file name doesn't contain any illegal character or is empty, false otherwise.
  */
-bool LogRotateFsUtility::fileNameIsValid(std::string_view /*fileName*/)
+bool LogRotateFsUtility::fileNameIsValid(std::string_view fileName)
 {
-	// TODO: implement
-	return false;
+	static constexpr std::string_view sc_illegalChars = "/,|<>:#$%{}()[]'\"^!?+*\\@& "sv;
+
+	if (fileName.empty()) {
+		std::cerr << "Empty file name is not allowed." << std::endl;
+		return false;
+	}
+
+	if (auto illegalCharPos = fileName.find_first_of(sc_illegalChars); illegalCharPos != std::string_view::npos) {
+		std::cerr << "Illegal character [ " << fileName.at(illegalCharPos) << " ] in file name: \"" << fileName << "\"." << std::endl;
+		return false;
+	}
+
+	return true;
 }
 
 /**
@@ -47,10 +63,14 @@ bool LogRotateFsUtility::fileNameIsValid(std::string_view /*fileName*/)
  * @param fileName File name to sanitize.
  * @return The sanatized file name if valid, an empty string otherwise.
  */
-std::string LogRotateFsUtility::sanitizeFileName(std::string /*fileName*/)
+std::string LogRotateFsUtility::sanitizeFileName(std::string fileName)
 {
-	// TODO: implement
-	return {};
+	fileName.erase(std::remove_if(fileName.begin(), fileName.end(), ::isspace), fileName.end());
+	fileName.erase(std::remove(fileName.begin(), fileName.end(), '/'), fileName.end()); // '/'
+	fileName.erase(std::remove(fileName.begin(), fileName.end(), '\\'), fileName.end()); // '\\'
+	fileName.erase(std::remove(fileName.begin(), fileName.end(), '.'), fileName.end()); // '.'
+
+	return fileNameIsValid(fileName) ? fileName : ""s;
 }
 
 /**
@@ -59,10 +79,21 @@ std::string LogRotateFsUtility::sanitizeFileName(std::string /*fileName*/)
  * @param fileName Name of the file in the directory path.
  * @return A pair containing a boolean (for success) and the full canonical path to \p directoryPath / \p fileName.
  */
-std::pair<bool, fs::path> LogRotateFsUtility::createPathToFile(std::string /*directoryPath*/, const std::string& /*fileName*/)
+std::pair<bool, fs::path> LogRotateFsUtility::createPathToFile(std::string directoryPath, const std::string& fileName)
 {
-	// TODO: implement
-	return {};
+	if (not fileNameIsValid(fileName)) {
+		std::cerr << "Tried to create a path to a file with an invalid fileName -> \"" << fileName << "\"." << std::endl;
+		return { false, {} };
+	}
+
+	// Unify the delimiters. It shouldn't be necessary because the only case this is useful is when the directoryPath contains mixed delimiters.
+	std::replace(directoryPath.begin(), directoryPath.end(), '\\', '/');
+
+	// return the canonical path concatenating the directory path and the fileName
+	std::error_code ec;
+	auto path = fs::weakly_canonical(fs::path { directoryPath } / fileName, ec);
+
+	return { not ec, path };
 }
 
 /**
@@ -71,8 +102,9 @@ std::pair<bool, fs::path> LogRotateFsUtility::createPathToFile(std::string /*dir
  */
 std::string LogRotateFsUtility::formatLogHeader()
 {
-	// TODO: implement
-	return {};
+	// Day Month Date Time Year: is written as "%a %b %d %H:%M:%S %Y"
+	// and formatted output as : Wed Sep 19 08:28:16 2012
+	return "\ng3log: created log file at: "s.append(g3::localtime_formatted(std::chrono::system_clock::now(), "%a %b %d %H:%M:%S %Y"s)).append("\n"s);
 }
 
 /**
